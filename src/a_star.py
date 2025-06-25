@@ -1,0 +1,3 @@
+"""
+A* Algorithm implementation
+"""

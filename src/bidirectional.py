@@ -1,0 +1,3 @@
+"""
+Bidirectional Dijkstra algorithm implementation
+"""
