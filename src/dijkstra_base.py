@@ -1,37 +1,56 @@
 """
-Basic Dijkstra algorithm implementation using Priority Queue
+Dijkstra's Algorithm Implementation with Priority Queue Optimization
+
+This implementation follows the principles of The Zen of Python:
+- Explicit is better than implicit
+- Simple is better than complex
+- Readability counts
 """
-# src/dijkstra_base.py
+
 import heapq
 from typing import List, Dict, Tuple
 
-def dijkstra(graph: Dict[int, List[Tuple[int, int]]], start: int) -> List[int]:
+
+def dijkstra(
+    graph: Dict[int, List[Tuple[int, int]]], 
+    start: int
+) -> List[int]:
     """
-    Dijkstra's algorithm with priority queue optimization.
+    Calculate shortest paths from start node using Dijkstra's algorithm.
     
     Args:
-        graph: Adjacency list representation of the graph. 
-               Format: {node: [(neighbor1, weight1), (neighbor2, weight2), ...]}
-        start: Starting node index.
-    
-    Returns:
-        List of shortest distances from start node to all other nodes.
-    """
-    n = len(graph)
-    dist = [float('inf')] * n
-    dist[start] = 0
-    visited = [False] * n
-    heap = [(0, start)]  # (distance, node)
-    
-    while heap:
-        current_dist, u = heapq.heappop(heap)
-        if visited[u]:
-            continue
-        visited[u] = True
+        graph: Adjacency list representation of the graph.
+               Format: {node: [(neighbor, weight), ...]}
+        start: Index of the starting node
         
-        for v, weight in graph[u]:
-            if dist[v] > current_dist + weight:
-                dist[v] = current_dist + weight
-                heapq.heappush(heap, (dist[v], v))
+    Returns:
+        List where index represents node and value represents shortest distance
+        from start node. Unreachable nodes have distance of infinity.
+    """
+    # Initialize data structures
+    num_nodes = len(graph)
+    distances = [float('inf')] * num_nodes
+    distances[start] = 0
     
-    return dist
+    visited_nodes = [False] * num_nodes
+    priority_queue = [(0, start)]  # (distance, node)
+    
+    # Process nodes in order of increasing distance
+    while priority_queue:
+        current_distance, current_node = heapq.heappop(priority_queue)
+        
+        # Skip already visited nodes
+        if visited_nodes[current_node]:
+            continue
+            
+        visited_nodes[current_node] = True
+        
+        # Update distances to neighbors
+        for neighbor, weight in graph[current_node]:
+            new_distance = current_distance + weight
+            
+            if new_distance < distances[neighbor]:
+                distances[neighbor] = new_distance
+                heapq.heappush(priority_queue, (new_distance, neighbor))
+    
+    return distances
