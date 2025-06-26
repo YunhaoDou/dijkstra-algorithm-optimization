@@ -42,7 +42,7 @@ def dijkstra(
     Find shortest paths in a weighted graph using Dijkstra's algorithm.
 
     Args:
-        graph: Adjacency list representation of the graph
+        graph: Dict[int, List[Tuple[int, Union[int, float]]]],
         start: Starting node
         end: Optional target node for path reconstruction
 
