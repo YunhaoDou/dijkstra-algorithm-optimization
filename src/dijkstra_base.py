@@ -1,56 +1,116 @@
 """
-Dijkstra's Algorithm Implementation with Priority Queue Optimization
+Dijkstra's Algorithm Implementation
 
-This implementation follows the principles of The Zen of Python:
-- Explicit is better than implicit
-- Simple is better than complex
-- Readability counts
+This module provides an optimized implementation of Dijkstra's shortest path algorithm with:
+- Priority queue optimization using heapq
+- Path reconstruction with reverse tracking
+- Comprehensive input validation
+- Time complexity: O((V + E) log V) where V is vertices and E is edges
+
+Example usage:
+```python
+# 定义图结构
+ graph = {
+     0: [(1, 4), (2, 1)],
+     1: [(3, 1)],
+     2: [(1, 2), (3, 5)],
+     3: []
+ }
+
+# 查找从节点0到所有节点的最短路径
+ distances = dijkstra(graph, start=0)
+ print(distances)  # {0: 0, 1: 3, 2: 1, 3: 4}
+
+# 查找两点间最短路径
+ path, distance = dijkstra(graph, start=0, end=3)
+ print(path)       # [0, 2, 1, 3]
+ print(distance)   # 4
+```
+
+For more details, see <mcurl name="Wikipedia" url="https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm"></mcurl>
 """
-
 import heapq
-from typing import List, Dict, Tuple
+from typing import Dict, Tuple, List, Optional, Union
 
 
 def dijkstra(
-    graph: Dict[int, List[Tuple[int, int]]], 
-    start: int
-) -> List[int]:
+    graph: Dict[int, List[Tuple[int, Union[int, float]]], 
+    start: int, 
+    end: Optional[int] = None
+) -> Union[Dict[int, Union[int, float]], Tuple[List[int], Union[int, float]]:
     """
-    Calculate shortest paths from start node using Dijkstra's algorithm.
-    
+    Find shortest paths in a weighted graph using Dijkstra's algorithm.
+
     Args:
-        graph: Adjacency list representation of the graph.
-               Format: {node: [(neighbor, weight), ...]}
-        start: Index of the starting node
-        
+        graph: Adjacency list representation of the graph
+        start: Starting node
+        end: Optional target node for path reconstruction
+
     Returns:
-        List where index represents node and value represents shortest distance
-        from start node. Unreachable nodes have distance of infinity.
+        If end is None: Dictionary of shortest distances from start to all nodes
+        If end is provided: Tuple of (path, distance) where path is the shortest path
     """
+    # Validate graph structure
+    if not isinstance(graph, dict):
+        raise TypeError("Graph must be a dictionary")
+    if not all(isinstance(node, int) for node in graph):
+        raise TypeError("Graph node keys must be integers")
+    if not all(isinstance(edges, list) for edges in graph.values()):
+        raise TypeError("Graph values must be lists of edges")
+
+    # Validate start and end nodes
+    if start not in graph:
+        raise ValueError(f"Start node {start} not found in graph")
+    if end is not None and end not in graph:
+        raise ValueError(f"End node {end} not found in graph")
+
+    # Check for negative weights
+    for node, edges in graph.items():
+        for neighbor, weight in edges:
+            if not isinstance(weight, (int, float)):
+                raise TypeError(f"Invalid weight type between {node} and {neighbor}")
+            if weight < 0:
+                raise ValueError(f"Negative weight detected between {node} and {neighbor}")
+
     # Initialize data structures
-    num_nodes = len(graph)
-    distances = [float('inf')] * num_nodes
+    distances = {node: float('inf') for node in graph}
     distances[start] = 0
-    
-    visited_nodes = [False] * num_nodes
-    priority_queue = [(0, start)]  # (distance, node)
-    
-    # Process nodes in order of increasing distance
+    previous_nodes = {node: None for node in graph}
+    priority_queue = [(0, start)]
+    visited = set()
+
     while priority_queue:
         current_distance, current_node = heapq.heappop(priority_queue)
-        
-        # Skip already visited nodes
-        if visited_nodes[current_node]:
+
+        if end is not None and current_node == end:
+            break
+
+        if current_node in visited:
             continue
-            
-        visited_nodes[current_node] = True
-        
-        # Update distances to neighbors
+        visited.add(current_node)
+
+        # Explore neighbors
         for neighbor, weight in graph[current_node]:
-            new_distance = current_distance + weight
-            
-            if new_distance < distances[neighbor]:
-                distances[neighbor] = new_distance
-                heapq.heappush(priority_queue, (new_distance, neighbor))
-    
+            if neighbor in visited:
+                continue
+
+            distance = current_distance + weight
+            if distance < distances[neighbor]:
+                distances[neighbor] = distance
+                previous_nodes[neighbor] = current_node
+                heapq.heappush(priority_queue, (distance, neighbor))
+
+    # Path reconstruction
+    if end is not None:
+        if distances[end] == float('inf'):
+            return [], float('inf')  # No path exists
+
+        path = []
+        current = end
+        while current is not None:
+            path.append(current)
+            current = previous_nodes[current]
+        path.reverse()
+        return path, distances[end]
+
     return distances
