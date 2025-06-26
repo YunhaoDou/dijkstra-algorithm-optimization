@@ -10,21 +10,21 @@ This module provides an optimized implementation of Dijkstra's shortest path alg
 Example usage:
 ```python
 # 定义图结构
- graph = {
-     0: [(1, 4), (2, 1)],
-     1: [(3, 1)],
-     2: [(1, 2), (3, 5)],
-     3: []
- }
+graph = {
+    0: [(1, 4), (2, 1)],
+    1: [(3, 1)],
+    2: [(1, 2), (3, 5)],
+    3: []
+}
 
-# 查找从节点0到所有节点的最短路径
- distances = dijkstra(graph, start=0)
- print(distances)  # {0: 0, 1: 3, 2: 1, 3: 4}
+# 计算从起点到所有节点的最短路径
+distances = dijkstra(graph, start=0)
+print(distances)  # {0: 0, 1: 3, 2: 1, 3: 4}
 
 # 查找两点间最短路径
- path, distance = dijkstra(graph, start=0, end=3)
- print(path)       # [0, 2, 1, 3]
- print(distance)   # 4
+path, distance = dijkstra(graph, start=0, end=3)
+print(path)       # [0, 2, 1, 3]
+print(distance)   # 4
 ```
 
 For more details, see <mcurl name="Wikipedia" url="https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm"></mcurl>
@@ -48,15 +48,24 @@ def dijkstra(
 
     Returns:
         If end is None: Dictionary of shortest distances from start to all nodes
-        If end is provided: Tuple of (path, distance) where path is the shortest path
+        If end is provided: Tuple of (path, distance)
     """
     # Validate graph structure
     if not isinstance(graph, dict):
         raise TypeError("Graph must be a dictionary")
-    if not all(isinstance(node, int) for node in graph):
-        raise TypeError("Graph node keys must be integers")
-    if not all(isinstance(edges, list) for edges in graph.values()):
-        raise TypeError("Graph values must be lists of edges")
+    for node in graph:
+        if not isinstance(node, int):
+            raise TypeError(f"Node {node} must be an integer")
+        if not isinstance(graph[node], list):
+            raise TypeError(f"Edges for node {node} must be a list")
+        for edge in graph[node]:
+            if not isinstance(edge, tuple) or len(edge) != 2:
+                raise TypeError(f"Invalid edge format in node {node}")
+            neighbor, weight = edge
+            if not isinstance(neighbor, int):
+                raise TypeError(f"Neighbor must be integer in edge from {node}")
+            if not isinstance(weight, (int, float)) or weight < 0:
+                raise ValueError(f"Invalid weight {weight} in edge from {node} to {neighbor}")
 
     # Validate start and end nodes
     if start not in graph:
@@ -64,15 +73,7 @@ def dijkstra(
     if end is not None and end not in graph:
         raise ValueError(f"End node {end} not found in graph")
 
-    # Check for negative weights
-    for node, edges in graph.items():
-        for neighbor, weight in edges:
-            if not isinstance(weight, (int, float)):
-                raise TypeError(f"Invalid weight type between {node} and {neighbor}")
-            if weight < 0:
-                raise ValueError(f"Negative weight detected between {node} and {neighbor}")
-
-    # Initialize data structures
+    # Initialize algorithm data structures
     distances = {node: float('inf') for node in graph}
     distances[start] = 0
     previous_nodes = {node: None for node in graph}
@@ -89,7 +90,7 @@ def dijkstra(
             continue
         visited.add(current_node)
 
-        # Explore neighbors
+        # Relaxation process
         for neighbor, weight in graph[current_node]:
             if neighbor in visited:
                 continue
@@ -103,7 +104,7 @@ def dijkstra(
     # Path reconstruction
     if end is not None:
         if distances[end] == float('inf'):
-            return [], float('inf')  # No path exists
+            return [], float('inf')
 
         path = []
         current = end
