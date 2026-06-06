@@ -1,0 +1,2 @@
+# No third-party dependencies. Python 3.10+ stdlib is enough.
+# (pytest is optional, only if you want `pytest tests/` instead of running test files directly.)

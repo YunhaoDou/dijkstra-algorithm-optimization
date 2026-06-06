@@ -1,117 +1,80 @@
-"""
-Dijkstra's Algorithm Implementation
+"""Classic Dijkstra's algorithm with a binary heap.
 
-This module provides an optimized implementation of Dijkstra's shortest path algorithm with:
-- Priority queue optimization using heapq
-- Path reconstruction with reverse tracking
-- Comprehensive input validation
-- Time complexity: O((V + E) log V) where V is vertices and E is edges
+Time complexity: O((V + E) log V).
 
-Example usage:
-```python
-# 定义图结构
-graph = {
-    0: [(1, 4), (2, 1)],
-    1: [(3, 1)],
-    2: [(1, 2), (3, 5)],
-    3: []
-}
-
-# 计算从起点到所有节点的最短路径
-distances = dijkstra(graph, start=0)
-print(distances)  # {0: 0, 1: 3, 2: 1, 3: 4}
-
-# 查找两点间最短路径
-path, distance = dijkstra(graph, start=0, end=3)
-print(path)       # [0, 2, 1, 3]
-print(distance)   # 4
-```
-
-For more details, see <mcurl name="Wikipedia" url="https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm"></mcurl>
+This is the baseline. The other modules optimize this baseline along different axes:
+  - `bidirectional`: search from both ends.
+  - `a_star`: prune with an admissible heuristic.
+  - `layered_graph`: handle state-augmented or time-expanded variants.
 """
 import heapq
-from typing import Dict, Tuple, List, Optional, Union
+from typing import Dict, Hashable, List, Optional, Tuple, Union
+
+from .utils import Graph, Number, validate_graph
 
 
 def dijkstra(
-    graph: Dict[int, List[Tuple[int, Union[int, float]]], 
-    start: int, 
-    end: Optional[int] = None
-) -> Union[Dict[int, Union[int, float]], Tuple[List[int], Union[int, float]]:
-    """
-    Find shortest paths in a weighted graph using Dijkstra's algorithm.
+    graph: Graph,
+    start: Hashable,
+    end: Optional[Hashable] = None,
+) -> Union[Dict[Hashable, Number], Tuple[List[Hashable], Number]]:
+    """Find shortest path(s) from `start` in a non-negative-weight graph.
 
     Args:
-        graph: Dict[int, List[Tuple[int, Union[int, float]]]],
-        start: Starting node
-        end: Optional target node for path reconstruction
+        graph: adjacency list as {node: [(neighbor, weight), ...]}
+        start: source node, must exist in graph
+        end: optional target. If given, the function returns a single (path, distance).
+             If None, returns a dict of distances from start to every reachable node.
 
     Returns:
-        If end is None: Dictionary of shortest distances from start to all nodes
-        If end is provided: Tuple of (path, distance)
+        If `end` is None: dict mapping each node to its shortest distance from `start`
+            (unreachable nodes have distance float('inf')).
+        If `end` is given: tuple (path_as_list, distance). If unreachable, ([], inf).
+
+    Raises:
+        TypeError / ValueError: on malformed graph.
+        KeyError: if start or end is not in graph.
     """
-    # Validate graph structure
-    if not isinstance(graph, dict):
-        raise TypeError("Graph must be a dictionary")
-    for node in graph:
-        if not isinstance(node, int):
-            raise TypeError(f"Node {node} must be an integer")
-        if not isinstance(graph[node], list):
-            raise TypeError(f"Edges for node {node} must be a list")
-        for edge in graph[node]:
-            if not isinstance(edge, tuple) or len(edge) != 2:
-                raise TypeError(f"Invalid edge format in node {node}")
-            neighbor, weight = edge
-            if not isinstance(neighbor, int):
-                raise TypeError(f"Neighbor must be integer in edge from {node}")
-            if not isinstance(weight, (int, float)) or weight < 0:
-                raise ValueError(f"Invalid weight {weight} in edge from {node} to {neighbor}")
-
-    # Validate start and end nodes
+    validate_graph(graph)
     if start not in graph:
-        raise ValueError(f"Start node {start} not found in graph")
+        raise KeyError(f"start={start!r} not in graph")
     if end is not None and end not in graph:
-        raise ValueError(f"End node {end} not found in graph")
+        raise KeyError(f"end={end!r} not in graph")
 
-    # Initialize algorithm data structures
-    distances = {node: float('inf') for node in graph}
+    distances: Dict[Hashable, Number] = {n: float("inf") for n in graph}
     distances[start] = 0
-    previous_nodes = {node: None for node in graph}
-    priority_queue = [(0, start)]
-    visited = set()
+    previous: Dict[Hashable, Optional[Hashable]] = {n: None for n in graph}
+    pq: List[Tuple[Number, Hashable]] = [(0, start)]
+    visited: set = set()
 
-    while priority_queue:
-        current_distance, current_node = heapq.heappop(priority_queue)
-
-        if end is not None and current_node == end:
-            break
-
-        if current_node in visited:
+    while pq:
+        d, u = heapq.heappop(pq)
+        if u in visited:
             continue
-        visited.add(current_node)
+        if end is not None and u == end:
+            break
+        visited.add(u)
 
-        # Relaxation process
-        for neighbor, weight in graph[current_node]:
-            if neighbor in visited:
+        for v, w in graph.get(u, []):
+            if v in visited:
                 continue
+            alt = d + w
+            if alt < distances.get(v, float("inf")):
+                distances[v] = alt
+                previous[v] = u
+                heapq.heappush(pq, (alt, v))
 
-            distance = current_distance + weight
-            if distance < distances[neighbor]:
-                distances[neighbor] = distance
-                previous_nodes[neighbor] = current_node
-                heapq.heappush(priority_queue, (distance, neighbor))
+    if end is None:
+        return distances
 
-    # Path reconstruction
-    if end is not None:
-        if distances[end] == float('inf'):
-            return [], float('inf')
+    if distances[end] == float("inf"):
+        return [], float("inf")
 
-        path = []
-        current = end
-        while current is not None:
-            path.append(current)
-            current = previous_nodes[current]
-        path.reverse()
-        return path, distances[end]
-
-    return distances
+    # Reconstruct path by walking previous pointers
+    path: List[Hashable] = []
+    cur: Optional[Hashable] = end
+    while cur is not None:
+        path.append(cur)
+        cur = previous[cur]
+    path.reverse()
+    return path, distances[end]

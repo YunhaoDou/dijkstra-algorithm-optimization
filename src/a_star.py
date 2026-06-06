@@ -1,57 +1,81 @@
+"""A* algorithm — Dijkstra with an admissible heuristic.
+
+When the heuristic h(n, goal) never overestimates the true remaining cost,
+A* returns the optimal path. When h is also consistent, no node is re-expanded.
+
+This module decouples the heuristic from the algorithm so the same `a_star`
+function works on any graph; pass a heuristic that fits your problem.
 """
-A* Algorithm implementation
-"""
-# src/a_star.py
 import heapq
+from typing import Callable, Dict, Hashable, List, Optional, Tuple
 
-def heuristic(node: int, goal: int) -> int:
-    """
-    Simple heuristic function (Manhattan distance as an example).
-    Replace this with domain-specific heuristic.
-    
-    Args:
-        node: Current node.
-        goal: Target node.
-    
-    Returns:
-        Heuristic estimate of distance from node to goal.
-    """
-    # Example: Manhattan distance on a grid (x, y coordinates)
-    x1, y1 = node // 10, node % 10  # Assume nodes are on a 10x10 grid
-    x2, y2 = goal // 10, goal % 10
-    return abs(x1 - x2) + abs(y1 - y2)
+from .utils import Graph, Number, validate_graph
 
-def a_star(graph: Dict[int, List[Tuple[int, int]]], start: int, goal: int) -> int:
-    """
-    A* algorithm for shortest path from start to goal.
-    
+Heuristic = Callable[[Hashable, Hashable], Number]
+
+
+def zero_heuristic(a: Hashable, b: Hashable) -> Number:
+    """Trivial heuristic. A* with this is identical to plain Dijkstra."""
+    return 0
+
+
+def manhattan_2d(a: Tuple[int, int], b: Tuple[int, int]) -> int:
+    """Manhattan (L1) distance. Use for 4-connected grid graphs where nodes are (x, y)."""
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+
+def euclidean_2d(a: Tuple[int, int], b: Tuple[int, int]) -> float:
+    """Euclidean (L2) distance. Admissible on grids that allow diagonal moves."""
+    return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+
+
+def a_star(
+    graph: Graph,
+    start: Hashable,
+    goal: Hashable,
+    heuristic: Heuristic = zero_heuristic,
+) -> Tuple[List[Hashable], Number]:
+    """Shortest path from `start` to `goal` using A*.
+
     Args:
-        graph: Adjacency list of the graph.
-        start: Starting node.
-        goal: Target node.
-    
+        graph: weighted adjacency list (see utils.Graph).
+        start: source node.
+        goal: target node.
+        heuristic: function (node, goal) -> estimated remaining cost. Must be admissible.
+
     Returns:
-        Shortest path distance from start to goal.
+        (path, distance), or ([], inf) if no path exists.
     """
-    n = len(graph)
-    dist = [float('inf')] * n
-    dist[start] = 0
-    heap = [(0 + heuristic(start, goal), 0, start)]  # (f_score, g_score, node)
-    
-    while heap:
-        f_score, g_score, u = heapq.heappop(heap)
-        
-        if u == goal:
-            return g_score
-        
-        if g_score > dist[u]:
+    validate_graph(graph)
+    if start not in graph:
+        raise KeyError(f"start={start!r} not in graph")
+    if goal not in graph:
+        raise KeyError(f"goal={goal!r} not in graph")
+
+    g_score: Dict[Hashable, Number] = {start: 0}
+    came_from: Dict[Hashable, Optional[Hashable]] = {start: None}
+    open_heap: List[Tuple[Number, Hashable]] = [(heuristic(start, goal), start)]
+    closed: set = set()
+
+    while open_heap:
+        _, u = heapq.heappop(open_heap)
+        if u in closed:
             continue
-        
-        for v, weight in graph[u]:
-            tentative_g = g_score + weight
-            if tentative_g < dist[v]:
-                dist[v] = tentative_g
-                f_score = tentative_g + heuristic(v, goal)
-                heapq.heappush(heap, (f_score, tentative_g, v))
-    
-    return float('inf')  # No path found
+        if u == goal:
+            path: List[Hashable] = []
+            cur: Optional[Hashable] = u
+            while cur is not None:
+                path.append(cur)
+                cur = came_from[cur]
+            path.reverse()
+            return path, g_score[u]
+        closed.add(u)
+
+        for v, w in graph.get(u, []):
+            tentative = g_score[u] + w
+            if tentative < g_score.get(v, float("inf")):
+                g_score[v] = tentative
+                came_from[v] = u
+                heapq.heappush(open_heap, (tentative + heuristic(v, goal), v))
+
+    return [], float("inf")
